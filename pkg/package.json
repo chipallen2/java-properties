@@ -7,9 +7,9 @@
     "dist-*/",
     "bin/"
   ],
-  "esnext": "pkg/dist-src/index.js",
-  "main": "pkg/dist-node/index.js",
-  "types": "pkg/dist-types/index.d.ts",
+  "esnext": "dist-src/index.js",
+  "main": "dist-node/index.js",
+  "types": "dist-types/index.d.ts",
   "pika": true,
   "sideEffects": false,
   "keywords": [
