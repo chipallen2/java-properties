@@ -8,6 +8,7 @@ declare class PropertiesFile {
         });
     };
     constructor(...args: string[]);
+    parseValue(value: string): string;
     makeKeys(line: string): string;
     addFile(file: string): void;
     of(...args: string[]): void;
