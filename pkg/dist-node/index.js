@@ -21,8 +21,10 @@ function _interopRequireDefault(obj) {
 
 
 class PropertiesFile {
+  //For tracking if a file is corrupt with duplicate keys - records the line numbers
   constructor(...args) {
     this.objs = {};
+    this.duplicateKeys = {};
 
     if (args.length) {
       this.of.apply(this, args);
@@ -63,14 +65,21 @@ class PropertiesFile {
 
         this.objs[key] = unescape(JSON.parse('"' + escapedValue + '"'));
       }
+
+      return key;
     }
+
+    return '';
   }
 
   addFile(file) {
+    this.duplicateKeys[file] = {};
+
     let data = _fs.default.readFileSync(file, 'utf-8');
 
     let items = data.split(/\r?\n/);
     let me = this;
+    let fileKeys = {};
 
     for (let i = 0; i < items.length; i++) {
       let line = items[i];
@@ -82,7 +91,17 @@ class PropertiesFile {
         i++;
       }
 
-      me.makeKeys(line);
+      const key = me.makeKeys(line); //Track duplicate keys in this file
+
+      if (key && fileKeys[key]) {
+        if (!this.duplicateKeys[file][key]) {
+          this.duplicateKeys[file][key] = [fileKeys[key]]; //Add the first key's line number too
+        }
+
+        this.duplicateKeys[file][key].push(i + 1);
+      } else if (key) {
+        fileKeys[key] = i + 1;
+      }
     }
   }
 
@@ -226,6 +245,16 @@ class PropertiesFile {
 
   reset() {
     this.objs = {};
+  }
+
+  hasDuplicateKeys() {
+    let hasDuplicates = false;
+    Object.keys(this.duplicateKeys).forEach(file => {
+      if (Object.keys(this.duplicateKeys[file]).length) {
+        hasDuplicates = true;
+      }
+    });
+    return hasDuplicates;
   }
 
 } // Retain 'of' from v1 for backward compatibility

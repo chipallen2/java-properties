@@ -2,8 +2,13 @@ declare class PropertiesFile {
     objs: {
         [key: string]: any;
     };
+    duplicateKeys: {
+        [file: string]: ({
+            [key: string]: number[];
+        });
+    };
     constructor(...args: string[]);
-    makeKeys(line: string): void;
+    makeKeys(line: string): string;
     addFile(file: string): void;
     of(...args: string[]): void;
     get(key: string, defaultValue?: string): string | string[] | undefined;
@@ -19,6 +24,7 @@ declare class PropertiesFile {
     getKeysForValue(value: string): string[];
     flattenFirst(): this;
     reset(): void;
+    hasDuplicateKeys(): boolean;
 }
 declare let of: (...args: any[]) => PropertiesFile;
 export { PropertiesFile, of };
