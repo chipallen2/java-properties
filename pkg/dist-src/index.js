@@ -1,25 +1,30 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.of = exports.PropertiesFile = void 0;
+
+var _fs = _interopRequireDefault(require("fs"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 /*
  * properties
  *
  * Copyright (c) 2013 Matt Steele
  * Licensed under the MIT license.
  */
-
-import fs from 'fs';
-
 class PropertiesFile {
-  objs: { [key: string]: any };
-  lookupDuplicateKeys: boolean;
-  lookupDuplicateValues: boolean;
-  duplicateKeys: { [file: string]: ({[key: string]: number[]}) }; //For tracking if a file is corrupt with duplicate keys - records the line numbers
-  duplicateValues: { [file: string]: ({[value: string]: number[]}) }; //For tracking if a file is corrupt with duplicate values - records the line numbers
-
-  constructor(...args: string[]) {
+  //For tracking if a file is corrupt with duplicate keys - records the line numbers
+  //For tracking if a file is corrupt with duplicate values - records the line numbers
+  constructor(...args) {
     this.objs = {};
     this.duplicateKeys = {};
     this.duplicateValues = {};
     this.lookupDuplicateKeys = false;
     this.lookupDuplicateValues = false;
+
     if (args.length) {
       this.of.apply(this, args);
     }
@@ -27,48 +32,46 @@ class PropertiesFile {
 
   enableLookupDuplicateKeys() {
     this.lookupDuplicateKeys = true;
-
     return this;
   }
 
   enableLookupDuplicateValues() {
     this.lookupDuplicateValues = true;
-
     return this;
   }
 
-  parseValue(value: string): string {
-      try {
-          const escapedValue = value
-              .replace(/\\"/g, '"') // fix any escaped double quotes
-              .replace(/\\'/g, '\'') // fix any escaped single quotes
-              .replace(/"/g, '\\"') // escape "
-              .replace(/\\:/g, ':') // remove \ before :
-              .replace(/\\=/g, '=') // remove \ before =
-              .replace(/\t/g, "\\t") // tab > \t
-              .replace(/\n/g, "\\n"); // new line > \n
+  parseValue(value) {
+    try {
+      const escapedValue = value.replace(/\\"/g, '"') // fix any escaped double quotes
+      .replace(/\\'/g, '\'') // fix any escaped single quotes
+      .replace(/"/g, '\\"') // escape "
+      .replace(/\\:/g, ':') // remove \ before :
+      .replace(/\\=/g, '=') // remove \ before =
+      .replace(/\t/g, "\\t") // tab > \t
+      .replace(/\n/g, "\\n"); // new line > \n
 
-          return unescape(JSON.parse('"' + escapedValue + '"'));
-      } catch {
-          return value
-              .replace(/\\"/g, '"') // fix any escaped double quotes
-              .replace(/\\'/g, '\'') // fix any escaped single quotes
-              .replace(/\\:/g, ':') // remove \ before :
-              .replace(/\\=/g, '='); // remove \ before =
-      }
+      return unescape(JSON.parse('"' + escapedValue + '"'));
+    } catch (_unused) {
+      return value.replace(/\\"/g, '"') // fix any escaped double quotes
+      .replace(/\\'/g, '\'') // fix any escaped single quotes
+      .replace(/\\:/g, ':') // remove \ before :
+      .replace(/\\=/g, '='); // remove \ before =
+    }
   }
 
-  makeKeys(line: string): string[] | null {
+  makeKeys(line) {
     if (line && line.indexOf('#') !== 0) {
       //let splitIndex = line.indexOf('=');
-      let separatorPositions = ['=',':']
-        .map((sep) => {return line.indexOf(sep);})
-        .filter((index) => {return index > -1;});
+      let separatorPositions = ['=', ':'].map(sep => {
+        return line.indexOf(sep);
+      }).filter(index => {
+        return index > -1;
+      });
       let splitIndex = Math.min(...separatorPositions);
       let key = line.substring(0, splitIndex).trim();
       let value = line.substring(splitIndex + 1).trim();
-      let parsedValue = this.parseValue(value);
-      // if keys already exists ...
+      let parsedValue = this.parseValue(value); // if keys already exists ...
+
       if (this.objs.hasOwnProperty(key)) {
         // if it is already an Array
         if (Array.isArray(this.objs[key])) {
@@ -83,53 +86,60 @@ class PropertiesFile {
         // the key does not exists
         this.objs[key] = parsedValue;
       }
+
       return [key, parsedValue];
     }
 
     return null;
   }
 
-  addFile(file: string) {
+  addFile(file) {
     this.duplicateKeys[file] = {};
     this.duplicateValues[file] = {};
-    let data = fs.readFileSync(file, 'utf-8');
+
+    let data = _fs.default.readFileSync(file, 'utf-8');
+
     let items = data.split(/\r?\n/);
     let me = this;
-    let fileKeys: ({[key: string]: number}) = {};
-    let fileValues: ({[value: string]: number}) = {};
+    let fileKeys = {};
+    let fileValues = {};
+
     for (let i = 0; i < items.length; i++) {
       let line = items[i];
+
       while (line.substring(line.length - 1) === '\\') {
         line = line.slice(0, -1);
         let nextLine = items[i + 1];
         line = line + nextLine.trim();
         i++;
       }
-      const keyValue = me.makeKeys(line);
 
-      //Track duplicate keys in this file
+      const keyValue = me.makeKeys(line); //Track duplicate keys in this file
+
       if (this.lookupDuplicateKeys && keyValue && fileKeys[keyValue[0]]) {
         if (!this.duplicateKeys[file][keyValue[0]]) {
           this.duplicateKeys[file][keyValue[0]] = [fileKeys[keyValue[0]]]; //Add the first key's line number too
         }
-        this.duplicateKeys[file][keyValue[0]].push(i+1);
-      } else if (this.lookupDuplicateKeys && keyValue) {
-        fileKeys[keyValue[0]] = i+1;
-      }
 
-      //Track duplicate values in this file
+        this.duplicateKeys[file][keyValue[0]].push(i + 1);
+      } else if (this.lookupDuplicateKeys && keyValue) {
+        fileKeys[keyValue[0]] = i + 1;
+      } //Track duplicate values in this file
+
+
       if (this.lookupDuplicateValues && keyValue && fileValues[keyValue[1]]) {
         if (!this.duplicateValues[file][keyValue[1]]) {
           this.duplicateValues[file][keyValue[1]] = [fileValues[keyValue[1]]]; //Add the first key's line number too
         }
-        this.duplicateValues[file][keyValue[1]].push(i+1);
+
+        this.duplicateValues[file][keyValue[1]].push(i + 1);
       } else if (this.lookupDuplicateValues && keyValue) {
-        fileValues[keyValue[1]] = i+1;
+        fileValues[keyValue[1]] = i + 1;
       }
     }
   }
 
-  of(...args: string[]) {
+  of(...args) {
     for (let i = 0; i < args.length; i++) {
       this.addFile(args[i]);
     }
@@ -137,52 +147,52 @@ class PropertiesFile {
     return this;
   }
 
-  get(key: string, defaultValue?: string) {
+  get(key, defaultValue) {
     if (this.objs.hasOwnProperty(key)) {
       if (Array.isArray(this.objs[key])) {
         let ret = [];
+
         for (let i = 0; i < this.objs[key].length; i++) {
           ret[i] = this.interpolate(this.objs[key][i]);
         }
+
         return ret;
       } else {
-        return typeof this.objs[key] === 'undefined'
-          ? ''
-          : this.interpolate(this.objs[key]);
+        return typeof this.objs[key] === 'undefined' ? '' : this.interpolate(this.objs[key]);
       }
     }
+
     return defaultValue;
   }
 
-  getLast(key: string, defaultValue?: string) {
+  getLast(key, defaultValue) {
     if (this.objs.hasOwnProperty(key)) {
       if (Array.isArray(this.objs[key])) {
         var lg = this.objs[key].length;
         return this.interpolate(this.objs[key][lg - 1]);
       } else {
-        return typeof this.objs[key] === 'undefined'
-          ? ''
-          : this.interpolate(this.objs[key]);
+        return typeof this.objs[key] === 'undefined' ? '' : this.interpolate(this.objs[key]);
       }
     }
+
     return defaultValue;
   }
 
-  getFirst(key: string, defaultValue?: string) {
+  getFirst(key, defaultValue) {
     if (this.objs.hasOwnProperty(key)) {
       if (Array.isArray(this.objs[key])) {
         return this.interpolate(this.objs[key][0]);
       } else {
-        return typeof this.objs[key] === 'undefined'
-          ? ''
-          : this.interpolate(this.objs[key]);
+        return typeof this.objs[key] === 'undefined' ? '' : this.interpolate(this.objs[key]);
       }
     }
+
     return defaultValue;
   }
 
-  getInt(key: string, defaultIntValue?: number) {
+  getInt(key, defaultIntValue) {
     let val = this.getLast(key);
+
     if (!val) {
       return defaultIntValue;
     } else {
@@ -190,8 +200,9 @@ class PropertiesFile {
     }
   }
 
-  getFloat(key: string, defaultFloatValue?: number) {
+  getFloat(key, defaultFloatValue) {
     let val = this.getLast(key);
+
     if (!val) {
       return defaultFloatValue;
     } else {
@@ -199,12 +210,13 @@ class PropertiesFile {
     }
   }
 
-  getBoolean(key: string, defaultBooleanValue?: boolean) {
-    function parseBool(b: string) {
+  getBoolean(key, defaultBooleanValue) {
+    function parseBool(b) {
       return !/^(false|0)$/i.test(b) && !!b;
     }
 
     let val = this.getLast(key);
+
     if (!val) {
       return defaultBooleanValue || false;
     } else {
@@ -212,44 +224,48 @@ class PropertiesFile {
     }
   }
 
-  set(key: string, value: string) {
+  set(key, value) {
     this.objs[key] = value;
   }
 
-  interpolate(s: string): string {
+  interpolate(s) {
     let me = this;
-    return s
-      .replace(/\\\\/g, '\\')
-      .replace(/\$\{([A-Za-z0-9\.\-\_]*)\}/g, function(match) {
-        return me.getLast(match.substring(2, match.length - 1))!;
-      });
+    return s.replace(/\\\\/g, '\\').replace(/\$\{([A-Za-z0-9\.\-\_]*)\}/g, function (match) {
+      return me.getLast(match.substring(2, match.length - 1));
+    });
   }
 
   getKeys() {
     let keys = [];
+
     for (let key in this.objs) {
       keys.push(key);
     }
+
     return keys;
   }
 
-  getMatchingKeys(matchstr: string) {
+  getMatchingKeys(matchstr) {
     let keys = [];
+
     for (let key in this.objs) {
       if (key.search(matchstr) !== -1) {
         keys.push(key);
       }
     }
+
     return keys;
   }
 
-  getKeysForValue(value: string) {
+  getKeysForValue(value) {
     let keys = [];
+
     for (let key in this.objs) {
       if (this.objs[key] === value) {
         keys.push(key);
       }
     }
+
     return keys;
   }
 
@@ -267,9 +283,8 @@ class PropertiesFile {
     this.objs = {};
   }
 
-  hasDuplicateKeys(): boolean {
+  hasDuplicateKeys() {
     let hasDuplicates = false;
-
     Object.keys(this.duplicateKeys).forEach(file => {
       if (hasDuplicates) return;
 
@@ -277,13 +292,11 @@ class PropertiesFile {
         hasDuplicates = true;
       }
     });
-
     return hasDuplicates;
   }
 
-  hasDuplicateValues(): boolean {
+  hasDuplicateValues() {
     let hasDuplicates = false;
-
     Object.keys(this.duplicateValues).forEach(file => {
       if (hasDuplicates) return;
 
@@ -291,16 +304,18 @@ class PropertiesFile {
         hasDuplicates = true;
       }
     });
-
     return hasDuplicates;
   }
-}
 
-// Retain 'of' from v1 for backward compatibility
-let of = function(...args: any[]) {
+} // Retain 'of' from v1 for backward compatibility
+
+
+exports.PropertiesFile = PropertiesFile;
+
+let of = function of(...args) {
   let globalFile = new PropertiesFile();
   globalFile.of.apply(globalFile, args);
   return globalFile;
 };
 
-export { PropertiesFile, of };
+exports.of = of;
